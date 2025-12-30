@@ -1,280 +1,162 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Biostat Excel Lab - 函數射擊遊戲</title>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <meta charset="UTF-8" />
+  <title>Excel 氣球闖關遊戲</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- React -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+  <!-- Babel (一定要，否則 JSX 會空白) -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
+
+<body class="bg-slate-100">
   <div id="root"></div>
 
-  <script type="text/babel">
-    const { useState, useEffect, useCallback } = React;
+<script type="text/babel">
 
-    const Target = () => (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
-      </svg>
+/* =========================
+   題庫（15 題）
+========================= */
+const questionBank = [
+  { id:1, question:'移除 A1 前後空白', answer:'=TRIM(A1)', options:['=TRIM(A1)','=CLEAN(A1)','=LEFT(A1,6)'], points:120, color:'from-green-400 to-green-600' },
+  { id:2, question:'年齡 ≥65 人數', answer:'=COUNTIF(B:B,">=65")', options:['=COUNTIF(B:B,">=65")','=COUNT(B:B)','=SUMIF(B:B,">=65")'], points:130, color:'from-green-400 to-green-600' },
+  { id:3, question:'取身分證字號', answer:'=RIGHT(A1,10)', options:['=RIGHT(A1,10)','=MID(A1,5,10)','=LEFT(A1,10)'], points:140, color:'from-green-400 to-green-600' },
+
+  { id:4, question:'計算完整年資', answer:'=DATEDIF(A1,TODAY(),"Y")', options:['=DATEDIF(A1,TODAY(),"Y")','=(TODAY()-A1)/365','=YEAR(A1)'], points:160, color:'from-blue-400 to-blue-600' },
+  { id:5, question:'存活率 (%)', answer:'=ROUND(A1/B1*100,2)', options:['=ROUND(A1/B1*100,2)','=A1/B1*100','=ROUND(A1/B1,2)'], points:180, color:'from-blue-400 to-blue-600' },
+  { id:6, question:'女性且年齡>50', answer:'=COUNTIFS(B:B,"女",C:C,">50")', options:['=COUNTIFS(B:B,"女",C:C,">50")','=COUNTIF(B:B,"女")','=SUMIFS(C:C,">50")'], points:190, color:'from-blue-400 to-blue-600' },
+
+  { id:7, question:'Cr 劑量調整', answer:'=IF(A1>2,"減量50%",IF(A1>=1,"減量25%","正常"))',
+    options:[
+      '=IF(A1>2,"減量50%",IF(A1>=1,"減量25%","正常"))',
+      '=IF(A1>2,"減量50%","正常")',
+      '=IFS(A1>2,"減量50%",A1>=1,"減量25%")'
+    ], points:230, color:'from-purple-500 to-fuchsia-600'
+  },
+  { id:8, question:'VLOOKUP 精確查找', answer:'=VLOOKUP(A1,$G$2:$H$100,2,0)',
+    options:[
+      '=VLOOKUP(A1,$G$2:$H$100,2,0)',
+      '=VLOOKUP(A1,G2:H100,2,1)',
+      '=MATCH(A1,G2:H100,0)'
+    ], points:250, color:'from-purple-500 to-fuchsia-600'
+  },
+  { id:9, question:'高血壓判斷', answer:'=IF(OR(A1>=140,B1>=90),"高血壓","正常")',
+    options:[
+      '=IF(OR(A1>=140,B1>=90),"高血壓","正常")',
+      '=IF(AND(A1>=140,B1>=90),"高血壓","正常")',
+      '=OR(A1>=140,B1>=90)'
+    ], points:280, color:'from-purple-500 to-fuchsia-600'
+  },
+
+  { id:10, question:'預算執行率', answer:'=INT(A1/B1*100)', options:['=INT(A1/B1*100)','=ROUND(A1/B1*100,0)','=A1/B1'], points:120, color:'from-orange-400 to-red-600' },
+  { id:11, question:'病歷號長度檢查', answer:'=IF(LEN(A1)=7,"OK","錯誤")', options:['=IF(LEN(A1)=7,"OK","錯誤")','=LEN(A1)=7','=ISTEXT(A1)'], points:140, color:'from-teal-400 to-cyan-600' },
+  { id:12, question:'加班費計算', answer:'=A1*B1*1.5', options:['=A1*B1*1.5','=(A1+50%)*B1','=A1*1.5+B1'], points:110, color:'from-yellow-400 to-amber-600' },
+  { id:13, question:'月份差計算', answer:'=DATEDIF(A1,TODAY(),"M")', options:['=DATEDIF(A1,TODAY(),"M")','=(TODAY()-A1)/30','=MONTH(TODAY())'], points:180, color:'from-cyan-400 to-blue-600' },
+  { id:14, question:'姓名遮罩', answer:'=LEFT(A1,1)&"O"&RIGHT(A1,1)', options:['=LEFT(A1,1)&"O"&RIGHT(A1,1)','=REPLACE(A1,2,1,"O")','=MID(A1,1,1)'], points:170, color:'from-pink-400 to-rose-600' },
+  { id:15, question:'存活百分比', answer:'=ROUND(A1/B1*100,2)', options:['=ROUND(A1/B1*100,2)','=A1/B1','=PERCENT(A1/B1)'], points:160, color:'from-indigo-400 to-blue-600' }
+];
+
+/* =========================
+   主程式
+========================= */
+function App(){
+  const [balloons,setBalloons] = React.useState([]);
+  const [selected,setSelected] = React.useState(null);
+  const [score,setScore] = React.useState(0);
+  const [lives,setLives] = React.useState(5);
+
+  React.useEffect(()=>{
+    if(lives<=0) return;
+    const spawn=setInterval(()=>{
+      const q=questionBank[Math.floor(Math.random()*questionBank.length)];
+      setBalloons(b=>[...b,{
+        id:Date.now()+Math.random(),
+        x:Math.random()*80+10,
+        y:100,
+        speed:0.7,
+        q
+      }]);
+    },1800);
+    return()=>clearInterval(spawn);
+  },[lives]);
+
+  React.useEffect(()=>{
+    if(lives<=0) return;
+    const move=setInterval(()=>{
+      setBalloons(bs=>bs.map(b=>({...b,y:b.y-b.speed}))
+        .filter(b=>{
+          if(b.y<-10){ setLives(l=>l-1); return false; }
+          return true;
+        }));
+    },40);
+    return()=>clearInterval(move);
+  },[lives]);
+
+  if(lives<=0){
+    return(
+      <div className="h-screen flex items-center justify-center bg-slate-900">
+        <div className="bg-white p-10 rounded-3xl text-center">
+          <h1 className="text-4xl font-bold text-red-600 mb-4">GAME OVER</h1>
+          <p className="text-xl">最終分數：{score}</p>
+        </div>
+      </div>
     );
+  }
 
-    const Heart = ({ size = 24, fill = "none", className = "" }) => (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth="2" className={className}>
-        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-      </svg>
-    );
-
-    const Trophy = ({ size = 24, className = "" }) => (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
-        <path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
-        <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
-        <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
-      </svg>
-    );
-
-    const Lightbulb = ({ size = 24 }) => (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/>
-        <path d="M9 18h6"/><path d="M10 22h4"/>
-      </svg>
-    );
-
-    const CheckCircle = ({ size = 24 }) => (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
-      </svg>
-    );
-
-    const XCircle = ({ size = 24 }) => (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
-      </svg>
-    );
-
-    const Beaker = ({ className = "" }) => (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-        <path d="M4.5 3h15"/><path d="M6 3v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V3"/><path d="M6 14h12"/>
-      </svg>
-    );
-
-    const ExcelBalloonShooter = () => {
-      const [gameState, setGameState] = useState('menu');
-      const [score, setScore] = useState(0);
-      const [lives, setLives] = useState(5);
-      const [balloons, setBalloons] = useState([]);
-      const [selectedBalloon, setSelectedBalloon] = useState(null);
-      const [feedback, setFeedback] = useState(null);
-      const [answeredIds, setAnsweredIds] = useState(new Set());
-      const [showHint, setShowHint] = useState(false);
-
-      const questionBank = [
-        { id: 1, category: '臨床統計', situation: '顯著性判斷', question: 'A1儲存格為p-value，若 <0.05 顯示"Significant"，否則顯示"NS"', correctAnswer: '=IF(A1<0.05,"Significant","NS")', options: ['=IF(A1<0.05,"Significant","NS")', '=IF(A1<0.05,Significant,NS)', '=TEST(A1<0.05)', '=COUNTIF(A1<0.05)'], hint: 'IF(條件, 真值, 假值)', explanation: '在統計檢定中，通常以 0.05 作為顯著水準臨界值。', points: 150, color: 'bg-gradient-to-br from-rose-400 to-rose-600' },
-        { id: 2, category: '行政管理', situation: '計算員工年資', question: 'A1為到職日，計算到今天為止的完整年資（年）', correctAnswer: '=DATEDIF(A1,TODAY(),"Y")', options: ['=DATEDIF(A1,TODAY(),"Y")', '=YEAR(TODAY()-A1)', '=(TODAY()-A1)/365', '=YEARFRAC(A1,TODAY())'], hint: 'DATEDIF第三參數"Y"代表完整年數', explanation: '用於計算員工年資、病患追蹤年限等。', points: 120, color: 'bg-gradient-to-br from-amber-400 to-orange-600' },
-        { id: 3, category: '資料清洗', situation: '移除病歷號空白', question: 'A1 內容為 " 880123 "，請移除前後多餘空格', correctAnswer: '=TRIM(A1)', options: ['=TRIM(A1)', '=CLEAN(A1)', '=REMOVE(A1," ")', '=LEFT(A1,6)'], hint: 'TRIM 用於刪除字串前後空格', explanation: '在臨床資料串接前，TRIM 是非常重要的步驟。', points: 100, color: 'bg-gradient-to-br from-emerald-400 to-teal-600' },
-        { id: 4, category: '進階查找', situation: '藥物交互作用查詢', question: '在藥典表 $G$2:$H$100 查找 A1 藥碼，回傳第 2 欄說明', correctAnswer: '=VLOOKUP(A1,$G$2:$H$100,2,0)', options: ['=VLOOKUP(A1,$G$2:$H$100,2,0)', '=VLOOKUP(A1,G2:H100,2,1)', '=LOOKUP(A1,G2,H2)', '=MATCH(A1,G2:H100,0)'], hint: '精確匹配請使用 0 或 FALSE', explanation: '$ 符號鎖定範圍，拖曳公式時才不會跑掉。', points: 250, color: 'bg-gradient-to-br from-violet-500 to-purple-700' },
-        { id: 5, category: '日期運算', situation: '計算收案天數', question: 'A1 為收案日，計算到今天為止共收案幾個月', correctAnswer: '=DATEDIF(A1,TODAY(),"M")', options: ['=DATEDIF(A1,TODAY(),"M")', '=(TODAY()-A1)/30', '=MONTHS(A1,TODAY())', '=DATEDIF(A1,TODAY(),"D")'], hint: 'DATEDIF 第三參數 "M" 代表月份', explanation: 'DATEDIF 是處理追蹤研究時間的精確隱藏函數。', points: 180, color: 'bg-gradient-to-br from-cyan-400 to-blue-600' },
-        { id: 6, category: '條件統計', situation: '計算高齡受試者數', question: 'B 欄為年齡，計算年齡 >= 65 的人數', correctAnswer: '=COUNTIF(B:B,">=65")', options: ['=COUNTIF(B:B,">=65")', '=COUNT(B:B,">65")', '=SUMIF(B:B,">=65")', '=COUNTIFS(B:B,65)'], hint: '條件必須以雙引號包圍', explanation: 'COUNTIF 用於單一條件計數，臨床收案統計常用。', points: 130, color: 'bg-gradient-to-br from-lime-400 to-green-600' },
-        { id: 7, category: '文字處理', situation: '提取身分證字號', question: 'A1內容為"王小明_A123456789"，請提取底線後的身分證字號', correctAnswer: '=RIGHT(A1,10)', options: ['=RIGHT(A1,10)', '=MID(A1,5,10)', '=EXTRACT(A1,"_")', '=LEFT(A1,10)'], hint: 'RIGHT(文字,字元數)', explanation: '身分證字號固定10碼，用RIGHT從右側提取。', points: 140, color: 'bg-gradient-to-br from-pink-400 to-rose-600' },
-        { id: 8, category: '行政管理', situation: '計算加班費', question: 'A1為時薪150，B1為加班時數，加班費為時薪1.5倍計算', correctAnswer: '=A1*B1*1.5', options: ['=A1*B1*1.5', '=A1*B1+50%', '=(A1+50%)*B1', '=A1*1.5+B1'], hint: '加班費 = 時薪 × 時數 × 倍率', explanation: '依勞基法，加班費通常為平日工資的1.34或1.67倍。', points: 110, color: 'bg-gradient-to-br from-yellow-400 to-amber-600' },
-        { id: 9, category: '臨床統計', situation: '計算存活率', question: 'A1為存活人數，B1為總收案數，計算百分比存活率並保留2位小數', correctAnswer: '=ROUND(A1/B1*100,2)', options: ['=ROUND(A1/B1*100,2)', '=A1/B1*100', '=ROUND(A1/B1,2)', '=PERCENT(A1/B1)'], hint: 'ROUND(數值, 小數位數)', explanation: 'ROUND函數在臨床報告中確保數據呈現一致性。', points: 160, color: 'bg-gradient-to-br from-indigo-400 to-blue-600' },
-        { id: 10, category: '複合函數', situation: '藥物劑量分級', question: 'A1為肌酐酸(Cr)，若Cr>2顯示"減量50%"，1-2顯示"減量25%"，<1顯示"正常劑量"', correctAnswer: '=IF(A1>2,"減量50%",IF(A1>=1,"減量25%","正常劑量"))', options: ['=IF(A1>2,"減量50%",IF(A1>=1,"減量25%","正常劑量"))', '=IF(A1>2,"減量50%","正常劑量")', '=SWITCH(A1,2,"減量50%",1,"減量25%")', '=IFS(A1>2,"減量50%",A1>1,"減量25%")'], hint: '多層IF：IF(條件1, 值1, IF(條件2, 值2, 值3))', explanation: '巢狀IF可處理多條件判斷，常用於臨床決策支援。', points: 280, color: 'bg-gradient-to-br from-fuchsia-500 to-purple-700' },
-        { id: 11, category: '資料驗證', situation: '檢查病歷號格式', question: 'A1應為7位數字，檢查格式是否正確（正確顯示"OK"，錯誤顯示"格式錯誤"）', correctAnswer: '=IF(LEN(A1)=7,"OK","格式錯誤")', options: ['=IF(LEN(A1)=7,"OK","格式錯誤")', '=IF(A1=7,"OK","格式錯誤")', '=LEN(A1)=7', '=ISTEXT(A1)'], hint: 'LEN()計算字元數', explanation: 'LEN函數用於驗證資料長度，確保輸入正確性。', points: 140, color: 'bg-gradient-to-br from-teal-400 to-cyan-600' },
-        { id: 12, category: '行政管理', situation: '預算執行率', question: 'A1為已支出金額，B1為預算總額，計算執行率百分比（保留整數）', correctAnswer: '=INT(A1/B1*100)', options: ['=INT(A1/B1*100)', '=ROUND(A1/B1*100,0)', '=A1/B1', '=FLOOR(A1/B1*100)'], hint: 'INT()無條件捨去小數', explanation: 'INT和ROUND都可用，但INT更常用於預算報表。', points: 120, color: 'bg-gradient-to-br from-orange-400 to-red-600' },
-        { id: 13, category: '條件統計', situation: '多條件篩選', question: 'B欄為性別，C欄為年齡，計算女性且年齡>50的人數', correctAnswer: '=COUNTIFS(B:B,"女",C:C,">50")', options: ['=COUNTIFS(B:B,"女",C:C,">50")', '=COUNTIF(B:B,"女",C:C,">50")', '=COUNT(B:B="女",C:C>50)', '=SUMIFS(B:B,"女",C:C,">50")'], hint: 'COUNTIFS可處理多條件', explanation: 'COUNTIFS是臨床分組統計的利器，可同時篩選多個條件。', points: 200, color: 'bg-gradient-to-br from-sky-400 to-indigo-600' },
-        { id: 14, category: '文字處理', situation: '姓名遮罩處理', question: 'A1為姓名"王大明"，將名字改為"王O明"（中間字遮蔽）', correctAnswer: '=LEFT(A1,1)&"O"&RIGHT(A1,1)', options: ['=LEFT(A1,1)&"O"&RIGHT(A1,1)', '=REPLACE(A1,2,1,"O")', '=MID(A1,1,1)&"O"&MID(A1,3,1)', '=CONCAT(LEFT(A1,1),"O")'], hint: '& 用於連接文字', explanation: '個資去識別化常用技巧，符合醫療隱私保護規範。', points: 170, color: 'bg-gradient-to-br from-red-400 to-pink-600' },
-        { id: 15, category: '複合函數', situation: '風險等級評估', question: 'A1為收縮壓，B1為舒張壓，若收縮壓≥140或舒張壓≥90顯示"高血壓"，否則"正常"', correctAnswer: '=IF(OR(A1>=140,B1>=90),"高血壓","正常")', options: ['=IF(OR(A1>=140,B1>=90),"高血壓","正常")', '=IF(AND(A1>=140,B1>=90),"高血壓","正常")', '=IF(A1>=140,B1>=90,"高血壓","正常")', '=OR(A1>=140,B1>=90)'], hint: 'OR()滿足任一條件即為真', explanation: 'OR與AND是邏輯判斷的基礎，用於多指標綜合評估。', points: 230, color: 'bg-gradient-to-br from-purple-500 to-fuchsia-700' }
-      ];
-
-      const spawnBalloon = useCallback(() => {
-        const unanswered = questionBank.filter(q => !answeredIds.has(q.id));
-        if (unanswered.length === 0) return;
-        const question = unanswered[Math.floor(Math.random() * unanswered.length)];
-        const shuffledOptions = [...question.options].sort(() => Math.random() - 0.5);
-        setBalloons(prev => [...prev, {
-          id: Date.now() + Math.random(),
-          questionId: question.id,
-          question: { ...question, shuffledOptions },
-          x: 10 + Math.random() * 80,
-          y: 110
-        }]);
-      }, [answeredIds]);
-
-      useEffect(() => {
-        if (gameState !== 'playing') return;
-        const spawnTimer = setInterval(() => { if (balloons.length < 8) spawnBalloon(); }, 2800);
-        const moveTimer = setInterval(() => {
-          setBalloons(prev => {
-            const updated = prev.map(b => ({ ...b, y: b.y - 0.04 }));
-            const escaped = updated.filter(b => b.y < -15);
-            if (escaped.length > 0) {
-              setLives(l => {
-                const newLife = l - escaped.length;
-                if (newLife <= 0) setTimeout(() => setGameState('gameover'), 10);
-                return Math.max(0, newLife);
-              });
-              escaped.forEach(eb => {
-                if (selectedBalloon?.id === eb.id) setSelectedBalloon(null);
-              });
-            }
-            return updated.filter(b => b.y >= -15);
-          });
-        }, 40);
-        return () => { clearInterval(spawnTimer); clearInterval(moveTimer); };
-      }, [gameState, balloons.length, spawnBalloon, selectedBalloon]);
-
-      const handleAnswer = (choice) => {
-        if (!selectedBalloon || feedback) return;
-        const isCorrect = choice === selectedBalloon.question.correctAnswer;
-        if (isCorrect) {
-          setFeedback({ type: 'success', message: '🎯 準確命中！', explanation: selectedBalloon.question.explanation });
-          setScore(prev => prev + selectedBalloon.question.points);
-          setAnsweredIds(prev => new Set([...prev, selectedBalloon.questionId]));
-          setBalloons(prev => prev.filter(b => b.id !== selectedBalloon.id));
-          setTimeout(() => {
-            setSelectedBalloon(null);
-            setFeedback(null);
-            setShowHint(false);
-            if (answeredIds.size + 1 === questionBank.length) setGameState('victory');
-          }, 2500);
-        } else {
-          setFeedback({ type: 'error', message: '❌ 偏離目標', correctAnswer: selectedBalloon.question.correctAnswer });
-          setLives(prev => prev - 1);
-          if (lives <= 1) setTimeout(() => setGameState('gameover'), 2500);
-          setTimeout(() => {
-            setFeedback(null);
-            setSelectedBalloon(null);
-            setShowHint(false);
-          }, 3000);
-        }
-      };
-
-      const startGame = () => {
-        setGameState('playing');
-        setScore(0);
-        setLives(5);
-        setBalloons([]);
-        setSelectedBalloon(null);
-        setFeedback(null);
-        setAnsweredIds(new Set());
-        setShowHint(false);
-      };
-
-      return (
-        <div className="min-h-screen bg-slate-50 font-sans">
-          <div className="bg-slate-900 text-white p-4 sticky top-0 z-50 shadow-md">
-            <div className="max-w-5xl mx-auto flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <Beaker className="text-blue-400" />
-                <h1 className="text-xl font-bold tracking-tight">Biostat Excel Lab</h1>
-              </div>
-              {gameState === 'playing' && (
-                <div className="flex gap-6">
-                  <div className="flex items-center gap-2"><Trophy size={18} className="text-yellow-400" /> <span className="font-mono font-bold text-lg">{score}</span></div>
-                  <div className="flex items-center gap-2">
-                    {[...Array(5)].map((_, i) => (
-                      <Heart key={i} size={18} fill={i < lives ? "#ef4444" : "none"} className={i < lives ? "text-red-500" : "text-slate-600"} />
-                    ))}
-                  </div>
-                </div>
-              )}
+  return(
+    <div className="max-w-6xl mx-auto p-6 grid grid-cols-12 gap-6">
+      <div className="col-span-7 bg-slate-200 h-[600px] relative rounded-3xl overflow-hidden">
+        {balloons.map(b=>(
+          <div key={b.id}
+            onClick={()=>setSelected(b)}
+            className="absolute flex flex-col items-center cursor-pointer"
+            style={{left:`${b.x}%`,bottom:`${b.y}%`}}>
+            <div className={`w-20 h-24 bg-gradient-to-br ${b.q.color}
+              rounded-t-full flex items-center justify-center text-white font-bold`}>
+              💰{b.q.points}
             </div>
+            <div className="w-0.5 h-8 bg-slate-400"></div>
           </div>
+        ))}
+      </div>
 
-          <div className="max-w-5xl mx-auto p-6">
-            {gameState === 'menu' && (
-              <div className="text-center bg-white border border-slate-200 p-16 rounded-3xl shadow-sm mt-10">
-                <div className="inline-block p-4 bg-blue-50 rounded-2xl mb-6">
-                   <Target />
-                </div>
-                <h2 className="text-4xl font-black text-slate-800 mb-4">Excel 函數實驗室</h2>
-                <p className="text-slate-500 mb-10 max-w-md mx-auto">針對生物統計與臨床數據處理設計的射擊遊戲。點擊上升的氣球，挑戰你的函數反應力。</p>
-                <button onClick={startGame} className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-xl text-lg font-bold transition-all shadow-lg hover:shadow-blue-200">
-                  進入實驗室
-                </button>
-              </div>
-            )}
+      <div className="col-span-5">
+        <div className="bg-white p-6 rounded-3xl mb-4 shadow">
+          <p>分數：{score}</p>
+          <p>生命：{lives}</p>
+        </div>
 
-            {gameState === 'playing' && (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                <div className="lg:col-span-7 relative bg-slate-200 h-[600px] rounded-3xl overflow-hidden shadow-inner border-8 border-white">
-                  <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#94a3b8 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
-                  {balloons.map(b => (
-                    <div key={b.id} onClick={() => { if(!feedback) { setSelectedBalloon(b); setFeedback(null); setShowHint(false); }}}
-                      className={`absolute cursor-pointer transition-all duration-300 ${selectedBalloon?.id === b.id ? 'scale-110 z-20' : 'hover:scale-105'}`}
-                      style={{ left: `${b.x}%`, bottom: `${b.y}%` }}>
-                      <div className={`w-20 h-24 ${b.question.color} rounded-t-full shadow-xl flex items-center justify-center text-white font-bold text-sm border-2 border-white/30 relative`}
-                        style={{ borderRadius: '50% 50% 50% 50% / 60% 60% 40% 40%' }}>
-                        {b.question.points}
-                        {selectedBalloon?.id === b.id && <div className="absolute -inset-2 border-4 border-yellow-400 rounded-full" style={{animation: 'pulse 2s infinite'}}></div>}
-                      </div>
-                      <div className="w-0.5 h-10 bg-slate-400 mx-auto"></div>
-                    </div>
-                  ))}
-                  {balloons.length === 0 && (
-                    <div className="h-full flex items-center justify-center text-slate-400 font-medium">
-                      準備發射下一組數據氣球...
-                    </div>
-                  )}
-                </div>
-
-                <div className="lg:col-span-5">
-                  {selectedBalloon ? (
-                    <div className="bg-white p-6 rounded-3xl shadow-xl border border-slate-100">
-                      <div className="flex justify-between items-center mb-6">
-                        <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold uppercase tracking-wider">
-                          {selectedBalloon.question.category}
-                        </span>
-                        <button onClick={() => setShowHint(!showHint)} className="text-slate-400 hover:text-blue-500 transition-colors">
-                          <Lightbulb size={20}/>
-                        </button>
-                      </div>
-                      <div className="mb-6">
-                        <h3 className="text-sm text-slate-400 mb-1 font-bold">研究情境</h3>
-                        <p className="text-slate-800 font-semibold leading-relaxed">{selectedBalloon.question.situation}</p>
-                      </div>
-                      <div className="bg-blue-50 p-4 rounded-2xl mb-6">
-                        <h3 className="text-xs text-blue-400 mb-2 font-bold uppercase tracking-widest">任務目標</h3>
-                        <p className="text-blue-900 font-mono font-bold text-lg">{selectedBalloon.question.question}</p>
-                      </div>
-                      {showHint && (
-                        <div className="bg-amber-50 border-l-4 border-amber-400 p-3 rounded-r-xl mb-6" style={{animation: 'pulse 2s infinite'}}>
-                          <p className="text-sm text-amber-800 font-medium">💡 提示：{selectedBalloon.question.hint}</p>
-                        </div>
-                      )}
-                      <div className="space-y-3">
-                        {selectedBalloon.question.shuffledOptions.map((opt, i) => (
-                          <button key={i} onClick={() => handleAnswer(opt)} disabled={feedback !== null}
-                            className="w-full text-left p-4 border-2 border-slate-100 hover:border-blue-500 hover:bg-blue-50 rounded-2xl transition-all font-mono text-sm disabled:opacity-50 group">
-                            <span className="text-slate-300 mr-3 group-hover:text-blue-300 italic">{i+1}.</span>
-                            {opt}
-                          </button>
-                        ))}
-                      </div>
-                      {feedback && (
-                        <div className={`mt-6 p-4 rounded-2xl flex items-start gap-3 ${feedback.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}
-                          style={{animation: 'bounce 1s infinite'}}>
-                          {feedback.type === 'success' ? <CheckCircle size={24}/> : <XCircle size={24}/>}
-                          <div>
-                            <p className="font-bold">{feedback.message}</p>
-                            <p className="text-xs mt-1 opacity-80">{feedback.explanation || `{(gameState === 'gameover' || gameState === 'victory') && (
-          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl p-10 max-w-sm w-full text-center shadow-2xl">
-              <div className="text-6xl mb-6">{gameState === 'victory' ? '🏆' : '🔬'}</div>
-              <h2 className="text-3xl font-black mb-2">{gameState === 'victory' ? '研究完成！' : '實驗中斷'}</h2>
-              <p className="text-slate-500 mb-8 font-medium">最終得分：{score}</p>
-              <button onClick={startGame} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-lg hover:bg-blue-700 transition-all shadow-lg">
-                重新開始實驗
+        {selected && (
+          <div className="bg-white p-6 rounded-3xl shadow">
+            <p className="font-bold mb-4">{selected.q.question}</p>
+            {selected.q.options.map(o=>(
+              <button key={o}
+                onClick={()=>{
+                  if(o===selected.q.answer) setScore(s=>s+selected.q.points);
+                  else setLives(l=>l-1);
+                  setBalloons(b=>b.filter(x=>x.id!==selected.id));
+                  setSelected(null);
+                }}
+                className="block w-full mb-2 p-3 border rounded hover:bg-blue-50">
+                {o}
               </button>
-            </div>
+            ))}
           </div>
         )}
       </div>
     </div>
   );
-};
+}
 
-ReactDOM.render(<ExcelBalloonShooter />, document.getElementById('root'));
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+
+</script>
+</body>
+</html>
